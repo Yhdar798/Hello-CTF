@@ -3,7 +3,7 @@ name: Sync Upstream Repository
 on:
   schedule:
     - cron: "0 */6 * * *"   # 每 6 小时同步一次
-  workflow_dispatch:        # 允许手动触发
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -17,6 +17,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # ✅ 关键：配置提交身份
+      - name: Set git user
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Detect current branch
         id: branch
@@ -33,9 +40,14 @@ jobs:
       - name: Merge upstream changes
         run: |
           git checkout ${{ steps.branch.outputs.branch }}
-          git merge upstream/${{ steps.branch.outputs.branch }} --no-edit
+          git merge upstream/${{ steps.branch.outputs.branch }} --no-edit || echo "Nothing to merge"
 
       - name: Push changes to fork
         run: |
           git push origin ${{ steps.branch.outputs.branch }}
 
+      - name: Merge upstream changes
+        run: |
+          git checkout ${{ steps.branch.outputs.branch }}
+          git merge upstream/${{ steps.branch.outputs.branch }} --strategy-option theirs --no-edit || \
+          git reset --hard upstream/${{ steps.branch.outputs.branch }}
